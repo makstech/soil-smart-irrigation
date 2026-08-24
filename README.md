@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brands/logo.png" alt="Soil Smart Irrigation" width="560">
+  <img src="custom_components/soil_smart_irrigation/brand/logo.png" alt="Soil Smart Irrigation" width="560">
 </p>
 
 <h3 align="center">Home Assistant integration for drip &amp; soil-moisture irrigation</h3>
