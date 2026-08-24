@@ -11,10 +11,12 @@
   </defs>
   <g transform="translate(30,30) scale(0.46875)">
     <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-    <path d="M256 92 C 322 190 372 250 372 314 A 116 116 0 1 1 140 314 C 140 250 190 190 256 92 Z" fill="url(#drop)"/>
-    <path d="M256 372 C 252 332 252 300 256 256" fill="none" stroke="#178a5c" stroke-width="16" stroke-linecap="round"/>
-    <path d="M256 304 C 214 304 184 278 182 240 C 224 242 252 268 256 304 Z" fill="#1f9d70"/>
-    <path d="M256 304 C 298 304 328 278 330 240 C 288 242 260 268 256 304 Z" fill="#1f9d70"/>
+    <g transform="translate(256 256) scale(1.12) translate(-256 -256)">
+      <path d="M256 92 C 322 190 372 250 372 314 A 116 116 0 1 1 140 314 C 140 250 190 190 256 92 Z" fill="url(#drop)"/>
+      <path d="M256 372 C 252 332 252 300 256 256" fill="none" stroke="#178a5c" stroke-width="16" stroke-linecap="round"/>
+      <path d="M256 304 C 214 304 184 278 182 240 C 224 242 252 268 256 304 Z" fill="#1f9d70"/>
+      <path d="M256 304 C 298 304 328 278 330 240 C 288 242 260 268 256 304 Z" fill="#1f9d70"/>
+    </g>
   </g>
   <text x="312" y="178" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="74" font-weight="700" fill="#17352b">Soil Smart <tspan fill="#1f9d70">Irrigation</tspan></text>
   <text x="314" y="230" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="30" font-weight="400" fill="#5b7a70">Water by what the soil needs</text>
