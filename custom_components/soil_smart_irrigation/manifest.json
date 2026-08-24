@@ -1,13 +1,13 @@
 {
   "domain": "soil_smart_irrigation",
   "name": "Soil Smart Irrigation",
-  "version": "0.1.0",
   "codeowners": ["@makstech"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/makstech/soil-smart-irrigation",
-  "issue_tracker": "https://github.com/makstech/soil-smart-irrigation/issues",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "dependencies": [],
-  "requirements": []
+  "issue_tracker": "https://github.com/makstech/soil-smart-irrigation/issues",
+  "requirements": [],
+  "version": "0.1.0"
 }
