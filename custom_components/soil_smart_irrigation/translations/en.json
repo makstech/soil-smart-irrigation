@@ -1,0 +1,161 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a zone",
+        "description": "Pick what you're watering and how it should decide. The next step only asks for what that choice needs.",
+        "data": {
+          "name": "Zone name",
+          "plant_type": "What are you watering?",
+          "mode": "How should it decide?",
+          "dosing_type": "How does it water?"
+        },
+        "data_description": {
+          "plant_type": "Sets sensible defaults for this kind of plant.",
+          "mode": "Soil sensor waters when the ground is dry. Weather estimate works it out from the forecast. Both uses either.",
+          "dosing_type": "Volume for drip/emitters (litres). Depth for sprinklers (mm over an area)."
+        }
+      },
+      "settings": {
+        "title": "Zone settings",
+        "description": "Defaults come from the plant type — for most people they're all you need.",
+        "data": {
+          "soil_sensor": "Soil moisture sensor",
+          "moisture_low": "Water below this moisture",
+          "liters_per_plant": "Water per plant",
+          "plant_count": "Number of plants",
+          "target_mm": "Water per run",
+          "area_m2": "Zone area",
+          "flow_lpm": "Total zone flow",
+          "rain_sensor": "Recent rainfall sensor",
+          "min_interval_days": "Minimum days between watering"
+        },
+        "data_description": {
+          "soil_sensor": "A moisture sensor in this zone (%).",
+          "moisture_low": "Water when the reading drops to this.",
+          "liters_per_plant": "A deep soak for one plant, e.g. ~10 L for a hedge shrub.",
+          "plant_count": "How many plants this drip line feeds.",
+          "area_m2": "The area this zone covers.",
+          "flow_lpm": "Combined output of this zone's emitters or nozzles.",
+          "rain_sensor": "Optional. Skip watering after rain, e.g. a 7-day rainfall total.",
+          "min_interval_days": "Never water more often than this."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "description": "Fine-tuning. The plant-type defaults are usually fine.",
+            "data": {
+              "moisture_target": "Target moisture",
+              "et_source": "ET₀ source",
+              "et0_sensor": "ET₀ sensor",
+              "crop_coefficient": "Crop coefficient (Kc)",
+              "et_trigger_mm": "Water when deficit reaches",
+              "efficiency": "Application efficiency (%)",
+              "rain_skip_mm": "Skip if rainfall reaches",
+              "rain_effectiveness": "Rain reaching the roots (%)",
+              "rain_interception_mm": "Daily rain write-off"
+            },
+            "data_description": {
+              "et_source": "Automatic uses Open-Meteo for your Home Assistant location — no sensor needed.",
+              "et0_sensor": "Only used when the ET₀ source is set to sensor.",
+              "crop_coefficient": "How thirsty this plant is vs. a reference lawn.",
+              "et_trigger_mm": "Water once the estimated water deficit reaches this.",
+              "rain_effectiveness": "Percentage of rain that actually soaks in to this zone. Lower it for mulched, deep-rooted or drip zones, where rain mostly wets the surface.",
+              "rain_interception_mm": "Each day, this much rain is lost to surface evaporation before the rest counts — so light showers don't cancel a watering.",
+              "rain_skip_mm": "Skip watering when the rainfall sensor reads at least this. The window — e.g. the last 7 days — is whatever that sensor measures."
+            }
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Zone",
+        "description": "Change what you're watering or how it decides; the next step has the matching settings.",
+        "data": {
+          "plant_type": "What are you watering?",
+          "mode": "How should it decide?",
+          "dosing_type": "How does it water?"
+        }
+      },
+      "settings": {
+        "title": "Zone settings",
+        "data": {
+          "soil_sensor": "Soil moisture sensor",
+          "moisture_low": "Water below this moisture",
+          "liters_per_plant": "Water per plant",
+          "plant_count": "Number of plants",
+          "target_mm": "Water per run",
+          "area_m2": "Zone area",
+          "flow_lpm": "Total zone flow",
+          "rain_sensor": "Recent rainfall sensor",
+          "min_interval_days": "Minimum days between watering"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "description": "Fine-tuning. The plant-type defaults are usually fine.",
+            "data": {
+              "moisture_target": "Target moisture",
+              "et_source": "ET₀ source",
+              "et0_sensor": "ET₀ sensor",
+              "crop_coefficient": "Crop coefficient (Kc)",
+              "et_trigger_mm": "Water when deficit reaches",
+              "efficiency": "Application efficiency (%)",
+              "rain_skip_mm": "Skip if rainfall reaches",
+              "rain_effectiveness": "Rain reaching the roots (%)",
+              "rain_interception_mm": "Daily rain write-off"
+            }
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "plant_type": {
+      "options": {
+        "lawn": "Lawn",
+        "hedge": "Hedge & shrubs",
+        "trees": "Trees",
+        "vegetables": "Vegetables",
+        "flowers": "Flowers",
+        "custom": "Custom"
+      }
+    },
+    "mode": {
+      "options": {
+        "sensor": "Soil sensor",
+        "et": "Weather estimate (evapotranspiration)",
+        "hybrid": "Both (sensor + weather)"
+      }
+    },
+    "dosing_type": {
+      "options": {
+        "volume": "Volume (drip / emitters)",
+        "depth": "Depth (sprinklers)"
+      }
+    },
+    "et_source": {
+      "options": {
+        "auto": "Automatic (from your location)",
+        "sensor": "Use an ET₀ sensor"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "irrigation_needed": { "name": "Irrigation needed" }
+    },
+    "sensor": {
+      "recommended_duration": { "name": "Recommended duration" },
+      "required_water": { "name": "Required water" },
+      "soil_deficit": { "name": "Soil deficit" }
+    },
+    "button": {
+      "mark_watered": { "name": "Mark watered" },
+      "reset_deficit": { "name": "Reset deficit" }
+    }
+  }
+}
