@@ -33,6 +33,10 @@ Soil Smart Irrigation fills that gap:
 
 ## Installation (HACS)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=makstech&repository=soil-smart-irrigation&category=integration)
+
+Click the badge to add the repository to HACS, or add it manually:
+
 1. In HACS, open the menu → **Custom repositories**.
 2. Add `https://github.com/makstech/soil-smart-irrigation` with category **Integration**.
 3. Search for **Soil Smart Irrigation**, download, and restart Home Assistant.

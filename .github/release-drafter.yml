@@ -1,22 +1,33 @@
-name-template: "v$RESOLVED_VERSION"
-tag-template: "v$RESOLVED_VERSION"
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+filter-by-commitish: true
 categories:
-  - title: "Features"
-    labels: ["feature", "enhancement"]
-  - title: "Fixes"
-    labels: ["fix", "bug"]
-  - title: "Maintenance"
-    labels: ["chore", "docs", "ci"]
-version-resolver:
-  major:
-    labels: ["major", "breaking"]
-  minor:
-    labels: ["minor", "feature", "enhancement"]
-  patch:
-    labels: ["patch", "fix", "bug", "chore", "docs"]
-  default: patch
-change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+  - title: 'Features'
+    labels:
+      - 'feat'
+      - 'enhancement'
+  - title: 'Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bug'
+  - title: 'Maintenance'
+    labels:
+      - 'chore'
+      - 'ci'
+      - 'documentation'
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 template: |
   ## Changes
 
   $CHANGES
+version-resolver:
+  major:
+    labels:
+      - 'semver:major'
+  minor:
+    labels:
+      - 'semver:minor'
+  patch:
+    labels:
+      - 'semver:patch'
+  default: patch
