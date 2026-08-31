@@ -6,7 +6,7 @@ import pytest
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.soil_smart_irrigation.const import DOMAIN
+from custom_components.soil_smart_irrigation.const import DOMAIN, OPEN_METEO_URL
 from custom_components.soil_smart_irrigation.coordinator import SoilIrrigationCoordinator
 
 
@@ -105,3 +105,32 @@ async def test_et_accrual_uses_hourly_integral(hass):
     c._deficit_mm = 0
     await c._async_update_data()  # ~1 h * 0.6 mm/h * kc 0.5
     assert c._deficit_mm == pytest.approx(0.3, abs=0.02)
+
+
+async def test_fetch_hourly_shifts_to_preceding_hour(hass, aioclient_mock):
+    aioclient_mock.get(
+        OPEN_METEO_URL,
+        json={
+            "utc_offset_seconds": 0,
+            "hourly": {
+                "time": ["2026-09-01T10:00", "2026-09-01T11:00"],
+                "et0_fao_evapotranspiration": [0.2, 0.4],
+            },
+        },
+    )
+    series = await _coord(hass)._fetch_open_meteo_hourly()
+    assert series[_hour(9)] == 0.2  # the 10:00 value covers [09:00, 10:00]
+    assert series[_hour(10)] == 0.4
+
+
+async def test_last_calc_holds_when_et0_uncovered(hass, aioclient_mock):
+    aioclient_mock.get(
+        OPEN_METEO_URL, json={"hourly": {"time": [], "et0_fao_evapotranspiration": []}}
+    )
+    c = _coord(hass, mode="et", et_source="auto", crop_coefficient=0.5)
+    anchor = dt_util.utcnow() - timedelta(hours=2)
+    c._last_calc = anchor
+    c._deficit_mm = 0
+    await c._async_update_data()  # fetch empty -> uncovered
+    assert c._last_calc == anchor  # clock held so the gap recovers on the next fetch
+    assert c._deficit_mm == 0

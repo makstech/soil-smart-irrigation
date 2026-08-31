@@ -84,7 +84,7 @@ In ET or Hybrid mode the default ET₀ source is **Automatic**: once an hour the
 
 - **What's sent:** only your latitude and longitude.
 - **What comes back:** the finished FAO-56 Penman-Monteith ET₀, resolved hourly. All the meteorology — temperature, humidity, wind (standardised to 2 m), solar radiation — is computed on Open-Meteo's side, so there's nothing to wire up and no unit or wind-height gotchas.
-- **Offline:** the fetched series runs a couple of days ahead, so short outages keep advancing the deficit; the balance also recovers missed hours after a restart.
+- **Offline:** the fetched series runs a couple of days ahead, so short outages keep advancing the deficit; after a restart it recovers recent missed hours within that ~2-day window.
 - **Prefer not to reach out?** Set the ET₀ source (under Advanced) to **Use an ET₀ sensor** and feed your own value; the integration then makes no external calls.
 
 ## Roadmap

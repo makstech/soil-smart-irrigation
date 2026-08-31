@@ -146,11 +146,11 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         mode = self.opt(CONF_MODE, MODE_SENSOR)
         moisture = self._num(self.opt(CONF_SOIL_SENSOR))
 
+        et_covered = True
         if mode in (MODE_ET, MODE_HYBRID):
             kc = float(self.opt(CONF_CROP_COEFFICIENT, DEFAULT_CROP_COEFFICIENT))
-            self._deficit_mm += kc * await self._async_et0_accrued(
-                self._last_calc or now, now
-            )
+            accrued, et_covered = await self._async_et0_accrued(self._last_calc or now, now)
+            self._deficit_mm += kc * accrued
             rain = self._num(self.opt(CONF_RAIN_SENSOR))
             if rain is not None:
                 if self._last_rain is not None and rain > self._last_rain:
@@ -165,7 +165,8 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._deficit_mm = max(0.0, self._deficit_mm)
 
         self._skip_correction_once = False
-        self._last_calc = now
+        if et_covered:
+            self._last_calc = now
 
         interval_ok = self._interval_ok(now)
         rain_skip = self._rain_skip()
@@ -198,22 +199,27 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._async_save()
         return result
 
-    async def _async_et0_accrued(self, start: datetime, end: datetime) -> float:
-        """ET0 (mm) over [start, end] — hourly-resolved for the Open-Meteo source."""
+    async def _async_et0_accrued(
+        self, start: datetime, end: datetime
+    ) -> tuple[float, bool]:
+        """ET0 (mm) over [start, end] and whether the interval was covered.
+
+        Uncovered (the automatic series failed to load) means the caller must not
+        advance its clock, or the missed hours are lost once the fetch recovers.
+        """
         if self.opt(CONF_ET_SOURCE, DEFAULT_ET_SOURCE) == ET_SOURCE_SENSOR:
             et0 = self._num(self.opt(CONF_ET0_SENSOR))
             self._et0 = et0
             if et0 is None or end <= start:
-                return 0.0
-            return et0 * (end - start).total_seconds() / 86400
+                return 0.0, True
+            return et0 * (end - start).total_seconds() / 86400, True
 
         await self._async_refresh_et0_series(end)
-        self._et0 = (
-            round(self._et0_between(end - timedelta(days=1), end), 2)
-            if self._et0_series
-            else None
-        )
-        return self._et0_between(start, end)
+        if not self._et0_series:
+            self._et0 = None
+            return 0.0, False
+        self._et0 = round(self._et0_between(end - timedelta(days=1), end), 2)
+        return self._et0_between(start, end), True
 
     async def _async_refresh_et0_series(self, now: datetime) -> None:
         if (
@@ -251,7 +257,11 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for stamp, value in zip(times, values):
             if value is None:
                 continue
-            hour = (datetime.fromisoformat(stamp) - offset).replace(tzinfo=timezone.utc)
+            # Open-Meteo reports et0 as a preceding-hour sum: the value at T covers
+            # [T-1h, T], so key it to that hour's start.
+            hour = (datetime.fromisoformat(stamp) - offset).replace(
+                tzinfo=timezone.utc
+            ) - timedelta(hours=1)
             series[hour] = float(value)
         return series
 
