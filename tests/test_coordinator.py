@@ -1,12 +1,12 @@
 """Water-need calculation."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.soil_smart_irrigation.const import DOMAIN
+from custom_components.soil_smart_irrigation.const import DOMAIN, OPEN_METEO_URL
 from custom_components.soil_smart_irrigation.coordinator import SoilIrrigationCoordinator
 
 
@@ -79,3 +79,58 @@ async def test_reload_skips_first_sensor_correction(hass):
     assert c._deficit_mm == pytest.approx(30)
     await c._async_update_data()  # next update -> 30 + 0.25 * (20 - 30)
     assert c._deficit_mm == pytest.approx(27.5)
+
+
+def _hour(h):
+    return datetime(2026, 9, 1, h, tzinfo=timezone.utc)
+
+
+async def test_et0_between_integrates_hourly(hass):
+    c = _coord(hass)
+    c._et0_series = {_hour(10): 0.2, _hour(11): 0.4, _hour(12): 0.3}
+    # half of 10:00 (0.1) + all of 11:00 (0.4)
+    assert c._et0_between(_hour(10) + timedelta(minutes=30), _hour(12)) == pytest.approx(0.5)
+    # a 10-minute slice inside one hourly bucket
+    assert c._et0_between(_hour(11), _hour(11) + timedelta(minutes=10)) == pytest.approx(0.4 / 6)
+    assert c._et0_between(_hour(20), _hour(21)) == 0  # outside the series
+
+
+async def test_et_accrual_uses_hourly_integral(hass):
+    c = _coord(hass, mode="et", et_source="auto", crop_coefficient=0.5)
+    now = dt_util.utcnow()
+    top = now.replace(minute=0, second=0, microsecond=0)
+    c._et0_series = {top - timedelta(hours=i): 0.6 for i in range(-1, 5)}  # 0.6 mm/h band
+    c._et0_series_at = now  # fresh -> no network fetch
+    c._last_calc = now - timedelta(hours=1)
+    c._deficit_mm = 0
+    await c._async_update_data()  # ~1 h * 0.6 mm/h * kc 0.5
+    assert c._deficit_mm == pytest.approx(0.3, abs=0.02)
+
+
+async def test_fetch_hourly_shifts_to_preceding_hour(hass, aioclient_mock):
+    aioclient_mock.get(
+        OPEN_METEO_URL,
+        json={
+            "utc_offset_seconds": 0,
+            "hourly": {
+                "time": ["2026-09-01T10:00", "2026-09-01T11:00"],
+                "et0_fao_evapotranspiration": [0.2, 0.4],
+            },
+        },
+    )
+    series = await _coord(hass)._fetch_open_meteo_hourly()
+    assert series[_hour(9)] == 0.2  # the 10:00 value covers [09:00, 10:00]
+    assert series[_hour(10)] == 0.4
+
+
+async def test_last_calc_holds_when_et0_uncovered(hass, aioclient_mock):
+    aioclient_mock.get(
+        OPEN_METEO_URL, json={"hourly": {"time": [], "et0_fao_evapotranspiration": []}}
+    )
+    c = _coord(hass, mode="et", et_source="auto", crop_coefficient=0.5)
+    anchor = dt_util.utcnow() - timedelta(hours=2)
+    c._last_calc = anchor
+    c._deficit_mm = 0
+    await c._async_update_data()  # fetch empty -> uncovered
+    assert c._last_calc == anchor  # clock held so the gap recovers on the next fetch
+    assert c._deficit_mm == 0

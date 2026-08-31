@@ -73,18 +73,18 @@ You wire these to your valves with a small automation, so it works with any cont
 ## How it works
 
 - **Sensor mode** waters when the moisture reading falls to your low threshold.
-- **ET mode** keeps a per-zone water balance: it adds each day's crop water use (ET₀ × Kc) and subtracts *effective* rainfall — `max(0, daily rain − interception) × effectiveness` — so rain that runs off mulch or never reaches deep roots doesn't wipe the deficit; when the deficit reaches your trigger, it's time to water.
+- **ET mode** keeps a per-zone water balance: it accrues crop water use (ET₀ × Kc) and subtracts *effective* rainfall — `max(0, daily rain − interception) × effectiveness` — so rain that runs off mulch or never reaches deep roots doesn't wipe the deficit; when the deficit reaches your trigger, it's time to water.
 - **Hybrid** trusts the probe when it's reporting and falls back to the ET estimate otherwise.
 
 A minimum interval and a rainfall skip keep watering deep and infrequent, which is better for roots than a daily sprinkle.
 
 ### Automatic ET₀ (uses the internet)
 
-In ET or Hybrid mode the default ET₀ source is **Automatic**: once an hour the integration fetches today's reference evapotranspiration from the free [Open-Meteo](https://open-meteo.com/) API, using your Home Assistant location. No API key, no account, and no weather integration required.
+In ET or Hybrid mode the default ET₀ source is **Automatic**: once an hour the integration fetches the *hourly* reference-evapotranspiration series from the free [Open-Meteo](https://open-meteo.com/) API, using your Home Assistant location, and accrues the deficit hour by hour — so hot, sunny afternoons push it up faster than cool nights. No API key, no account, and no weather integration required.
 
 - **What's sent:** only your latitude and longitude.
-- **What comes back:** the finished FAO-56 Penman-Monteith ET₀ (mm/day). All the meteorology — temperature, humidity, wind (standardised to 2 m), solar radiation — is computed on Open-Meteo's side, so there's nothing to wire up and no unit or wind-height gotchas.
-- **Offline:** if the request fails the last known value is kept and the deficit simply doesn't advance for that cycle.
+- **What comes back:** the finished FAO-56 Penman-Monteith ET₀, resolved hourly. All the meteorology — temperature, humidity, wind (standardised to 2 m), solar radiation — is computed on Open-Meteo's side, so there's nothing to wire up and no unit or wind-height gotchas.
+- **Offline:** the fetched series runs a couple of days ahead, so short outages keep advancing the deficit; after a restart it recovers recent missed hours within that ~2-day window.
 - **Prefer not to reach out?** Set the ET₀ source (under Advanced) to **Use an ET₀ sensor** and feed your own value; the integration then makes no external calls.
 
 ## Roadmap
