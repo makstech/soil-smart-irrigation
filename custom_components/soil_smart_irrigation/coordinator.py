@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any
 
@@ -82,7 +82,8 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_rain: float | None = None
         self._last_calc: datetime | None = None
         self._et0: float | None = None
-        self._et0_at: datetime | None = None
+        self._et0_series: dict[datetime, float] = {}
+        self._et0_series_at: datetime | None = None
         # Daily interception window: gross rain seen today and how much of the
         # resulting effective rain has already been credited to the deficit.
         self._rain_day: str | None = None
@@ -146,11 +147,10 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         moisture = self._num(self.opt(CONF_SOIL_SENSOR))
 
         if mode in (MODE_ET, MODE_HYBRID):
-            et0 = await self._async_et0()
-            if et0 is not None and self._last_calc is not None:
-                days = (now - self._last_calc).total_seconds() / 86400
-                kc = float(self.opt(CONF_CROP_COEFFICIENT, DEFAULT_CROP_COEFFICIENT))
-                self._deficit_mm += kc * et0 * days
+            kc = float(self.opt(CONF_CROP_COEFFICIENT, DEFAULT_CROP_COEFFICIENT))
+            self._deficit_mm += kc * await self._async_et0_accrued(
+                self._last_calc or now, now
+            )
             rain = self._num(self.opt(CONF_RAIN_SENSOR))
             if rain is not None:
                 if self._last_rain is not None and rain > self._last_rain:
@@ -198,37 +198,75 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._async_save()
         return result
 
-    async def _async_et0(self) -> float | None:
+    async def _async_et0_accrued(self, start: datetime, end: datetime) -> float:
+        """ET0 (mm) over [start, end] — hourly-resolved for the Open-Meteo source."""
         if self.opt(CONF_ET_SOURCE, DEFAULT_ET_SOURCE) == ET_SOURCE_SENSOR:
-            return self._num(self.opt(CONF_ET0_SENSOR))
+            et0 = self._num(self.opt(CONF_ET0_SENSOR))
+            self._et0 = et0
+            if et0 is None or end <= start:
+                return 0.0
+            return et0 * (end - start).total_seconds() / 86400
 
-        now = dt_util.utcnow()
-        if self._et0 is not None and self._et0_at and now - self._et0_at < timedelta(hours=1):
-            return self._et0
+        await self._async_refresh_et0_series(end)
+        self._et0 = (
+            round(self._et0_between(end - timedelta(days=1), end), 2)
+            if self._et0_series
+            else None
+        )
+        return self._et0_between(start, end)
+
+    async def _async_refresh_et0_series(self, now: datetime) -> None:
+        if (
+            self._et0_series
+            and self._et0_series_at
+            and now - self._et0_series_at < timedelta(hours=1)
+        ):
+            return
         try:
-            value = await self._fetch_open_meteo_et0()
+            series = await self._fetch_open_meteo_hourly()
         except (TimeoutError, aiohttp.ClientError, ValueError, KeyError, IndexError) as err:
-            _LOGGER.debug("Open-Meteo ET0 fetch failed: %s", err)
-            return self._et0
-        if value is not None:
-            self._et0 = value
-            self._et0_at = now
-        return self._et0
+            _LOGGER.debug("Open-Meteo hourly ET0 fetch failed: %s", err)
+            return
+        if series:
+            self._et0_series = series
+            self._et0_series_at = now
 
-    async def _fetch_open_meteo_et0(self) -> float | None:
+    async def _fetch_open_meteo_hourly(self) -> dict[datetime, float]:
         session = async_get_clientsession(self.hass)
         params = {
             "latitude": self.hass.config.latitude,
             "longitude": self.hass.config.longitude,
-            "daily": "et0_fao_evapotranspiration",
-            "timezone": "auto",
-            "forecast_days": 1,
+            "hourly": "et0_fao_evapotranspiration",
+            "past_days": 2,
+            "forecast_days": 2,
         }
         async with asyncio.timeout(20):
             response = await session.get(OPEN_METEO_URL, params=params)
             payload = await response.json()
-        values = (payload.get("daily") or {}).get("et0_fao_evapotranspiration") or []
-        return float(values[0]) if values and values[0] is not None else None
+        hourly = payload.get("hourly") or {}
+        times = hourly.get("time") or []
+        values = hourly.get("et0_fao_evapotranspiration") or []
+        offset = timedelta(seconds=payload.get("utc_offset_seconds", 0))
+        series: dict[datetime, float] = {}
+        for stamp, value in zip(times, values):
+            if value is None:
+                continue
+            hour = (datetime.fromisoformat(stamp) - offset).replace(tzinfo=timezone.utc)
+            series[hour] = float(value)
+        return series
+
+    def _et0_between(self, start: datetime, end: datetime) -> float:
+        """Integrate the hourly ET0 series over [start, end], in mm."""
+        if not self._et0_series or end <= start:
+            return 0.0
+        total = 0.0
+        for hour_start, et0 in self._et0_series.items():
+            overlap = (
+                min(end, hour_start + timedelta(hours=1)) - max(start, hour_start)
+            ).total_seconds()
+            if overlap > 0:
+                total += et0 * overlap / 3600
+        return total
 
     def _credit_rain(self, now: datetime, delta: float) -> None:
         """Credit new rainfall against the deficit, per calendar day.
