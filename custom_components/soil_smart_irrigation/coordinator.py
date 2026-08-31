@@ -88,6 +88,9 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._rain_day: str | None = None
         self._rain_accum = 0.0
         self._rain_credited = 0.0
+        # A settings save reloads the entry; skip the first sensor blend after (re)load
+        # so saving settings doesn't jerk the deficit off-cadence.
+        self._skip_correction_once = True
 
     def opt(self, key: str, default: Any = None) -> Any:
         return self.entry.options.get(key, self.entry.data.get(key, default))
@@ -155,12 +158,13 @@ class SoilIrrigationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._last_rain = rain
             self._deficit_mm = max(0.0, self._deficit_mm)
 
-            if mode == MODE_HYBRID:
+            if mode == MODE_HYBRID and not self._skip_correction_once:
                 measured = self._sensor_deficit(moisture)
                 if measured is not None:
                     self._deficit_mm += SENSOR_CORRECTION * (measured - self._deficit_mm)
                     self._deficit_mm = max(0.0, self._deficit_mm)
 
+        self._skip_correction_once = False
         self._last_calc = now
 
         interval_ok = self._interval_ok(now)
