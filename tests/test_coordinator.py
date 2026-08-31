@@ -58,3 +58,24 @@ async def test_credit_rain_resets_each_day(hass):
     assert c._deficit_mm == pytest.approx(27)
     c._credit_rain(day1 + timedelta(days=1), 1)  # new day, 1 mm < interception
     assert c._deficit_mm == pytest.approx(27)
+
+
+async def test_reload_skips_first_sensor_correction(hass):
+    hass.states.async_set("sensor.moisture", "40")  # at low -> measured = trigger = 20
+    hass.states.async_set("sensor.et0", "0")  # isolate the blend from ET accrual
+    c = _coord(
+        hass,
+        mode="hybrid",
+        et_source="sensor",
+        et0_sensor="sensor.et0",
+        soil_sensor="sensor.moisture",
+        moisture_low=40,
+        moisture_target=50,
+        et_trigger_mm=20,
+    )
+    c._deficit_mm = 30
+    c._last_calc = dt_util.utcnow()
+    await c._async_update_data()  # first refresh after (re)load -> blend skipped
+    assert c._deficit_mm == pytest.approx(30)
+    await c._async_update_data()  # next update -> 30 + 0.25 * (20 - 30)
+    assert c._deficit_mm == pytest.approx(27.5)
